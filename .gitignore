@@ -1,0 +1,9 @@
+.venv
+.vscode
+
+1000/
+data/
+mini/
+norm/
+data_generate.py
+gen.py
