@@ -1,4 +1,7 @@
 from collections import namedtuple
+from math import prod
+
+import numpy as np
 
 
 Rectangle = namedtuple('Rectangle', ('xy', 'length', 'width', 'height', 'priority'))
@@ -62,3 +65,80 @@ def write_txt(data, file_name):
         # parameters of rectangles
         for rectangle in data["rectangles"]:
             f.write(f'{" ".join(map(str, rectangle))}\n')
+
+
+def rolling(length, width, height, new_height):
+    new_length = length * height / new_height
+    new_width = width * height / new_height
+    if new_length == int(new_length) and new_width == int(new_width):
+        k = length / width
+        if k < 0.3:
+            length = new_length
+        elif k > 3:
+            width = new_width
+        else:
+            if np.random.uniform() < 0.5:
+                length = new_length
+            else:
+                width = new_width
+    elif new_length == int(new_length):
+        length = new_length
+    elif new_width == int(new_width):
+        width = new_width
+    else:
+        msg = (
+            f'Rolling operation from ({length, width, height}) to '
+            f'({new_height}) does not result in integer size'
+        )
+        raise ValueError(msg)
+    return int(length), int(width), new_height
+
+
+def cutting(length, width, height):
+    if length > width:
+        new_length = np.around(np.random.normal(length/20, length/60))
+        for _ in range(100):
+            if 0 <= new_length < length:
+                break
+            new_length = np.around(np.random.normal(length/20, length/60))
+        else:
+            raise ValueError('Failed to generate integer length')
+        new_length *= 10
+        size_a = int(new_length), int(width), height
+        size_b = int(length - new_length), int(width), height
+    else:
+        new_width = np.around(np.random.normal(width/20, width/60))
+        for _ in range(100):
+            if 0 <= new_width < width:
+                break
+            new_width = np.around(np.random.normal(width/20, width/60))
+        else:
+            raise ValueError('Failed to generate integer width')
+        new_width *= 10
+        size_a = int(length), int(new_width), height
+        size_b = int(length), int(width - new_width), height
+    return size_a, size_b
+
+
+def generate_bins(length, width, height, heights):
+    sizes = []
+    size = length, width, height
+    for i, height in enumerate(heights):
+        if i != len(heights) - 1:
+            if np.random.uniform() < 0.5:
+                size = rolling(*size, height)
+                size, size_b = cutting(*size)
+                sizes.append(size_b)
+            else:
+                size, size_b = cutting(*size)
+                size_b = rolling(*size_b, height)
+                sizes.append(size_b)
+        else:
+            if size[-1] != height:
+                size = rolling(*size, height)
+            sizes.append(size)
+
+    if prod((length, width, height)) != sum(map(prod, sizes)):
+        msg = 'The sizes of the original bin and the resulting bins do not match'
+        raise ValueError(msg)
+    return sizes
