@@ -2,6 +2,7 @@ from collections import namedtuple
 from math import prod
 
 import numpy as np
+import scipy as sp
 
 
 Rectangle = namedtuple('Rectangle', ('xy', 'length', 'width', 'height', 'priority'))
@@ -142,3 +143,117 @@ def generate_bins(length, width, height, heights):
         msg = 'The sizes of the original bin and the resulting bins do not match'
         raise ValueError(msg)
     return sizes
+
+
+def recursive_generate(xy, size, rectangles, area_params, side_ratio_params):
+    length, width, height = size
+
+    area_alpha = area_params.get('alpha') or 2
+    area_beta = area_params.get('beta') or 2
+    min_area = area_params.get('min') or length * width / 10
+    max_area = area_params.get('max') or length * width
+    ratio_alpha = side_ratio_params.get('alpha') or 2
+    ratio_beta = side_ratio_params.get('beta') or 2
+    min_ratio = side_ratio_params.get('min') or 0.5
+    max_ratio = side_ratio_params.get('max') or 2
+
+    # priority = scipy.stats.beta.rvs(1, 5)
+    # priority = np.around(1 + priority * (5 - 1))
+    priority = np.random.randint(1, 4)
+
+    area = sp.stats.beta.rvs(area_alpha, area_beta)
+    area = np.around(min_area + area * (max_area - min_area))
+
+    for _ in range(100):
+        if 0 < area < length * width or min_area <= area <= max_area:
+            break
+        area = sp.stats.beta.rvs(area_alpha, area_beta)
+        area = np.around(min_area + area * (max_area - min_area))
+    else:
+        area = length * width
+
+    ratio = sp.stats.beta.rvs(ratio_alpha, ratio_beta)
+    ratio = np.around(min_ratio + ratio * (max_ratio - min_ratio), 2)
+
+    rect_width = np.around((area / ratio) ** 0.5)
+    if rect_width > width or width - 1.5 * rect_width <= 0:
+        rect_width = width
+
+    rect_length = np.around(ratio * rect_width)
+    if rect_length > length or length - 1.5*rect_length <= 0:
+        rect_length = length
+
+    rect = Rectangle(
+        xy, int(rect_length), int(rect_width), int(height), int(priority)
+    )
+    rectangles.append(rect)
+
+    if rect.length == length and rect.width != width:
+        xy = xy[0] + rect.width, xy[1]
+        recursive_generate(
+            xy, (length, width - rect.width, height), rectangles,
+            area_params, side_ratio_params
+        )
+    elif rect.length != length and rect.width == width:
+        xy = xy[0], xy[1] + rect.length
+        recursive_generate(
+            xy, (length - rect.length, width, height), rectangles,
+            area_params, side_ratio_params
+        )
+    else:
+        cut_direction = np.random.choice((0, 1))
+        if cut_direction == 0:
+            # horizontal section
+            recursive_generate(
+                (xy[0], xy[1] + rect.length),
+                (length - rect.length, width, height), rectangles,
+                area_params, side_ratio_params
+            )
+            recursive_generate(
+                (xy[0] + rect.width, xy[1]),
+                (rect.length, width - rect.width, height), rectangles,
+                area_params, side_ratio_params
+            )
+        else:
+            # horizontal section
+            recursive_generate(
+                (xy[0], xy[1] + rect.length),
+                (length - rect.length, rect.width, height), rectangles,
+                area_params, side_ratio_params
+            )
+            recursive_generate(
+                (xy[0] + rect.width, xy[1]),
+                (length, width - rect.width, height), rectangles,
+                area_params, side_ratio_params
+            )
+
+
+def generate_rectangles(length, width, height, **kwargs):
+    start_xy = 0, 0
+
+    x = int(np.random.normal(width / 2, width / 20))
+    y = int(np.random.normal(length / 2, length / 20))
+    
+    while width / 30 < x <= width / 10:
+        x = int(np.random.normal(width / 2, width / 20))
+    while length / 30 < y <= length / 10:
+        y = int(np.random.normal(length / 2, length / 20))
+
+    size_1_a = (int(y / 2), x, height), start_xy
+    size_1_b = (y - int(y / 2), x, height), (0, int(y / 2))
+    size_2_a = (y, int((width - x) / 2), height), (x, 0)
+    size_2_b = (y, width - x - size_2_a[1], height), (x + size_2_a[0][1], 0)
+    size_3_a = (int((width - y) / 2), width - x, height), (x, y)
+    size_3_b = (length - y - size_3_a[0], width - x, height), (x, y + size_3_a[0][0])
+    size_4_a = (length - y, int(x / 2), height), (0, y)
+    size_4_b = (length - y, x - size_4_a[0][1], height), (size_4_a[1], y)
+
+    regions = (
+        size_1_a, size_1_b, size_2_a, size_2_b,
+        size_3_a, size_3_b, size_4_a, size_4_b
+    )
+    rectangles = []
+    for xy, regin in regions:
+        recursive_generate(xy, regin, rectangles, **kwargs)
+
+    return rectangles
