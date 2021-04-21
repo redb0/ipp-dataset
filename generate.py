@@ -3,9 +3,35 @@ from math import prod
 
 import numpy as np
 import scipy as sp
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 
 Rectangle = namedtuple('Rectangle', ('xy', 'length', 'width', 'height', 'priority'))
+
+
+def visualize(width, length, rectangles, with_borders=False):
+    fig = plt.figure()
+    axes = fig.add_subplot(1, 1, 1)
+    axes.add_patch(
+        patches.Rectangle((0, 0), width, length, hatch='x', fill=False)
+    )
+    for i, r in enumerate(rectangles):
+        color = np.random.uniform(size=(3, ))
+        axes.add_patch(
+            patches.Rectangle(r.xy, r.width, r.length, color=color)
+        )
+        if with_borders:
+            axes.add_patch(
+                patches.Rectangle(r.xy, r.width, r.length,
+                fill=False, edgecolor='black', linewidth=2)
+            )
+        x, y = r.xy
+        axes.text(x + 0.48 * r.width, y + 0.48 * r.length, str(i))
+    axes.set_xlim(0, width)
+    axes.set_ylim(0, length)
+    plt.gca().set_aspect('equal', adjustable='box')
+    plt.show()
 
 
 def to_json(obj, level=0):
@@ -51,7 +77,7 @@ def write_json_file(data, file_name: str):
         f.write(to_json(data))
 
 
-def write_txt(data, file_name):
+def write_txt(data, file_name, with_xy=False):
     print(f'Write to {file_name}')
     with open(file_name, 'w') as f:
         # size of ingot
@@ -59,13 +85,17 @@ def write_txt(data, file_name):
         # number of bins
         f.write(f'{len(data["bins"])}\n')
         # sizes of bins
-        for bin_size in data["bins"]:
+        for bin_size in data['bins']:
             f.write(f'{" ".join(map(str, bin_size))}\n')
         # number of rectangles
         f.write(f'{len(data["rectangles"])}\n')
         # parameters of rectangles
-        for rectangle in data["rectangles"]:
-            f.write(f'{" ".join(map(str, rectangle))}\n')
+        for rectangle in data['rectangles']:
+            if with_xy:
+                xy = ' '.join(map(str, rectangle.xy)) + ' '
+            else:
+                xy = ''
+            f.write(f'{xy}{" ".join(map(str, rectangle[1:]))}\n')
 
 
 def rolling(length, width, height, new_height):
