@@ -1,5 +1,5 @@
+import os
 import json
-from collections import namedtuple
 from itertools import chain
 from math import prod
 from operator import itemgetter
@@ -91,7 +91,37 @@ def visualize_example(containers, rectangles):
         example_parameters(rectangles)
 
 
-def main():
+def global_info(path):
+    examples = []
+    for _, _, files in os.walk(path):
+        for file in files:
+            if file.endswith(".txt"):
+                examples.append(read_txt_file(path + file))
+    print_global_parameters(examples)
+
+
+def print_global_parameters(examples):
+    n = len(examples)
+    m_mean = sum(len(item["bins"]) for item in examples) / n
+    sum_rect_on_group = sum(len(item["rectangles"]) / len(item["bins"]) for item in examples)
+    sum_rect = sum(len(item["rectangles"]) for item in examples)
+    all_bins = tuple(chain.from_iterable(map(itemgetter('bins'), examples)))
+    sum_square = sum(bin_[0] * bin_[1] for bin_ in all_bins)
+    sum_ratio = sum(bin_[0] / bin_[1] for bin_ in all_bins)
+    number_of_bins = len(all_bins)
+
+    print('-' * 50)
+    print(f'1) Number of problems                 : {n}')
+    print(f'2) Average number of groups           : {m_mean:.4f}')
+    print(f'3) Average number of elements per bin : {sum_rect_on_group / n:.4f}')
+    print(f'4) Average number of items per problem: {sum_rect / n:.4f}')
+    print(f'5) Total number of bins               : {number_of_bins}')
+    print(f'6) Average bin aspect ratio           : {sum_ratio / number_of_bins:.4f}')
+    print(f'7) Average container area             : {sum_square / number_of_bins:.4f}')
+    print('-' * 50)
+
+
+def problem_selection():
     msg = 'Enter the number of the example (or exit): '
     while (number := input(msg)) != 'exit' and number.isdigit():
         number = int(number)
@@ -100,6 +130,31 @@ def main():
         print_example_parameters(data)
         rectangles = data['rectangles']
         visualize_example(data['bins'], rectangles)
+
+
+def menu():
+    menu = [
+        ('Global info', lambda: global_info('txt_coordinates/')),
+        ('Problem info', problem_selection),
+        ('Exit', None)
+    ]
+
+    for i, (msg, _) in enumerate(menu):
+        print(f'{i + 1}) {msg}')
+
+    msg = 'Select the desired menu item: '
+    while (number := input(msg)) != 'exit' and input(msg).isdigit():
+        number = int(number) - 1
+        if 0 <= number < len(menu) - 1:
+            menu[number][1]()
+        elif number == len(menu) - 1:
+            break
+        else:
+            print('Choose one of the two menu items: 1 or 2')
+
+
+def main():
+    menu()
 
 
 if __name__ == '__main__':
